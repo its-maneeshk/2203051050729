@@ -1,5 +1,3 @@
-// src/components/URLInputGroup.jsx
-
 import { TextField, Grid } from '@mui/material';
 
 const URLInputGroup = ({ index, data, onChange }) => {
