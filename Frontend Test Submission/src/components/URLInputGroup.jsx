@@ -1,43 +1,49 @@
-import { TextField, Grid } from '@mui/material';
+import React from "react";
+
 
 const URLInputGroup = ({ index, data, onChange }) => {
-  const handleInput = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    onChange(index, { ...data, [name]: value });
+    onChange(index, name, value);
   };
 
   return (
-    <Grid container spacing={2} sx={{ mb: 2 }}>
-      <Grid item xs={12} md={5}>
-        <TextField
-          fullWidth
-          label="Original URL"
-          name="url"
-          value={data.url}
-          onChange={handleInput}
+    <div className="url-input-group">
+      <label>
+        Long URL:
+        <input
+          type="text"
+          name="longUrl"
+          value={data.longUrl}
+          onChange={handleChange}
+          placeholder="https://example.com"
           required
         />
-      </Grid>
-      <Grid item xs={12} md={3}>
-        <TextField
-          fullWidth
-          label="Validity (min)"
-          name="validity"
+      </label>
+
+      <label>
+        Validity (mins):
+        <input
           type="number"
+          name="validity"
           value={data.validity}
-          onChange={handleInput}
+          onChange={handleChange}
+          placeholder="Defaults to 30"
+          min="1"
         />
-      </Grid>
-      <Grid item xs={12} md={4}>
-        <TextField
-          fullWidth
-          label="Custom Shortcode"
-          name="shortcode"
-          value={data.shortcode}
-          onChange={handleInput}
+      </label>
+
+      <label>
+        Custom Code:
+        <input
+          type="text"
+          name="customCode"
+          value={data.customCode}
+          onChange={handleChange}
+          placeholder="Optional (e.g. my-link)"
         />
-      </Grid>
-    </Grid>
+      </label>
+    </div>
   );
 };
 

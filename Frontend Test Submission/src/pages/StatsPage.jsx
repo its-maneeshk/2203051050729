@@ -1,83 +1,62 @@
 import { useEffect, useState } from "react";
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-} from "@mui/material";
-import { log } from "../middleware/logger";
+import { log } from "../logger";
 
-const getStoredUrls = () => {
-  const raw = localStorage.getItem("shortenedUrls");
-  return raw ? JSON.parse(raw) : [];
-};
 
 const StatsPage = () => {
-  const [shortened, setShortened] = useState([]);
+  const [data, setData] = useState([]);
 
   useEffect(() => {
-    const urls = getStoredUrls();
-    setShortened(urls);
-
-    log("frontend", "info", "stats", "Viewed statistics page");
+    fetchStats();
   }, []);
 
+  const fetchStats = async () => {
+    try {
+      const res = await fetch("http://localhost:8080/api/stats"); 
+      const json = await res.json();
+      setData(json);
+      await log("frontend", "info", "stats", "Fetched stats data");
+    } catch (error) {
+      await log("frontend", "error", "stats", "Failed to fetch stats");
+    }
+  };
+
   return (
-    <Box sx={{ mt: 4 }}>
-      <Typography variant="h5" gutterBottom>
-        URL Statistics
-      </Typography>
-
-      {shortened.length === 0 ? (
-        <Typography>No URLs have been shortened yet.</Typography>
+    <div className="stats-container">
+      <h2>Shortened URL Stats</h2>
+      {data.length === 0 ? (
+        <p>No stats available.</p>
       ) : (
-        shortened.map((entry, index) => (
-          <Card key={index} sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6">
-                {window.location.origin}/{entry.shortUrl}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                Original URL: {entry.originalUrl}
-              </Typography>
-              <Typography>
-                Created: {new Date(entry.createdAt).toLocaleString()}
-              </Typography>
-              <Typography>
-                Expires: {new Date(entry.expireAt).toLocaleString()}
-              </Typography>
-              <Typography>Total Clicks: {entry.visits || 0}</Typography>
-
-              <Divider sx={{ my: 1 }} />
-
-              {entry.clicks && entry.clicks.length > 0 ? (
-                <>
-                  <Typography variant="subtitle1">Click History:</Typography>
-                  <List dense>
-                    {entry.clicks.map((click, i) => (
-                      <ListItem key={i} divider>
-                        <ListItemText
-                          primary={`Clicked at ${new Date(click.time).toLocaleString()}`}
-                          secondary={`Referrer: ${click.referrer}, Location: ${click.geo?.location || 'N/A'}`}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </>
+        data.map((item, index) => (
+          <div className="stats-card" key={index}>
+            <p><strong>Original:</strong> {item.originalUrl}</p>
+            <p>
+              <strong>Short URL:</strong>{" "}
+              <a href={`/${item.shortcode}`} target="_blank" rel="noreferrer">
+                {window.location.origin}/{item.shortcode}
+              </a>
+            </p>
+            <p><strong>Expires:</strong> {item.expiresAt}</p>
+            <p><strong>Total Clicks:</strong> {item.clicks.length}</p>
+            <div className="click-log">
+              <strong>Click Logs:</strong>
+              {item.clicks.length === 0 ? (
+                <p>No clicks yet.</p>
               ) : (
-                <Typography color="textSecondary">
-                  No click data yet.
-                </Typography>
+                <ul>
+                  {item.clicks.map((click, i) => (
+                    <li key={i}>
+                      <p>Time: {click.timestamp}</p>
+                      <p>Referrer: {click.referrer || "Unknown"}</p>
+                      <p>Location: {click.location || "Unknown"}</p>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ))
       )}
-    </Box>
+    </div>
   );
 };
 

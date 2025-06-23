@@ -1,111 +1,102 @@
-import { useState } from 'react';
-import { Box, Button, Typography, Paper } from '@mui/material';
-import URLInputGroup from '../components/URLInputGroup';
-import { generateShortcode } from '../utils/generateShortcode';
-import { isValidShortcode, isValidURL } from '../utils/validators';
-import { log } from '../middleware/logger';
+import { useState } from "react";
+import { log } from "../logger";
+// import "./App.css";
 
 const ShortenPage = () => {
-  const [inputs, setInputs] = useState([{ url: '', validity: '', shortcode: '' }]);
-  const [shortened, setShortened] = useState([]);
+  const [urlData, setUrlData] = useState([
+    { originalUrl: "", validity: "", customCode: "" },
+  ]);
+  const [results, setResults] = useState([]);
 
-  const handleChange = (index, newData) => {
-    const updated = [...inputs];
-    updated[index] = newData;
-    setInputs(updated);
+  const handleInputChange = (index, field, value) => {
+    const newData = [...urlData];
+    newData[index][field] = value;
+    setUrlData(newData);
   };
 
-  const handleAddInput = () => {
-    if (inputs.length < 5) {
-      setInputs([...inputs, { url: '', validity: '', shortcode: '' }]);
+  const handleAddField = () => {
+    if (urlData.length < 5) {
+      setUrlData([...urlData, { originalUrl: "", validity: "", customCode: "" }]);
     }
   };
 
-  const handleShorten = async () => {
-    const results = [];
+  const handleSubmit = async () => {
+    const allResults = [];
 
-    for (const entry of inputs) {
-      const { url, validity, shortcode } = entry;
-
-      if (!isValidURL(url)) {
-        await log("frontend", "error", "shortener", `Invalid URL: ${url}`);
+    for (const item of urlData) {
+      const { originalUrl, validity, customCode } = item;
+      if (!originalUrl || !originalUrl.startsWith("http")) {
+        alert("Please enter a valid URL (must start with http/https)");
+        await log("frontend", "error", "form", "Invalid URL format");
         continue;
       }
 
-      let finalCode = shortcode || generateShortcode();
-
-      if (!isValidShortcode(finalCode)) {
-        await log("frontend", "error", "shortener", `Invalid shortcode: ${finalCode}`);
-        continue;
-      }
-
-      if (shortened.find(item => item.shortUrl === finalCode)) {
-        await log("frontend", "error", "shortener", `Shortcode collision: ${finalCode}`);
-        continue;
-      }
-
-      const now = Date.now();
-      const duration = validity ? parseInt(validity) : 30;
-      const expireAt = now + duration * 60000;
-
-      const shortEntry = {
-        originalUrl: url,
-        shortUrl: finalCode,
-        createdAt: now,
-        expireAt,
-        visits: 0,
-        clicks: []
+      const payload = {
+        url: originalUrl,
+        validity: parseInt(validity) || 30,
+        shortcode: customCode || undefined,
       };
 
-      await log("frontend", "info", "shortener", `Created short link: ${finalCode}`);
-      results.push(shortEntry);
+      try {
+        const res = await fetch("http://localhost:8080/api/shorten", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        allResults.push(data);
+        await log("frontend", "info", "shorten", "URL shortened successfully");
+      } catch (error) {
+        await log("frontend", "error", "shorten", "Error shortening URL");
+      }
     }
 
-    setShortened([...shortened, ...results]);
-    setInputs([{ url: '', validity: '', shortcode: '' }]);
+    setResults(allResults);
   };
 
   return (
-    <Box sx={{ mt: 4 }}>
-      <Typography variant="h5" gutterBottom>Shorten Your URLs</Typography>
-
-      {inputs.map((input, idx) => (
-        <URLInputGroup
-          key={idx}
-          index={idx}
-          data={input}
-          onChange={handleChange}
-        />
+    <div className="shorten-container">
+      <h2>Shorten URLs</h2>
+      {urlData.map((item, index) => (
+        <div className="input-group" key={index}>
+          <input
+            type="text"
+            placeholder="Long URL"
+            value={item.originalUrl}
+            onChange={(e) => handleInputChange(index, "originalUrl", e.target.value)}
+          />
+          <input
+            type="number"
+            placeholder="Validity (minutes)"
+            value={item.validity}
+            onChange={(e) => handleInputChange(index, "validity", e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="Custom shortcode (optional)"
+            value={item.customCode}
+            onChange={(e) => handleInputChange(index, "customCode", e.target.value)}
+          />
+        </div>
       ))}
-
-      <Button variant="contained" onClick={handleAddInput} disabled={inputs.length >= 5}>
-        Add Another URL
-      </Button>
-
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleShorten}
-        sx={{ ml: 2 }}
-      >
-        Shorten All
-      </Button>
-
-      {shortened.length > 0 && (
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h6">Shortened URLs</Typography>
-          {shortened.map((item, idx) => (
-            <Paper key={idx} sx={{ p: 2, mt: 2 }}>
-              <Typography><strong>Original:</strong> {item.originalUrl}</Typography>
-              <Typography>
-                <strong>Short:</strong> <a href={`/${item.shortUrl}`}>{window.location.origin}/{item.shortUrl}</a>
-              </Typography>
-              <Typography><strong>Expires:</strong> {new Date(item.expireAt).toLocaleString()}</Typography>
-            </Paper>
-          ))}
-        </Box>
+      {urlData.length < 5 && (
+        <button onClick={handleAddField}>+ Add More</button>
       )}
-    </Box>
+      <button onClick={handleSubmit}>Shorten</button>
+
+      <div className="results">
+        <h3>Shortened Links:</h3>
+        {results.map((res, i) => (
+          <div key={i}>
+            <a href={`/${res.shortcode}`} target="_blank" rel="noreferrer">
+              {window.location.origin}/{res.shortcode}
+            </a>
+            <p>Expires at: {res.expiresAt}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
 

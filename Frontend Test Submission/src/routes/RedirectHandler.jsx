@@ -1,66 +1,34 @@
-import { useParams, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { log } from '../middleware/logger';
-
-const getStoredUrls = () => {
-  const raw = localStorage.getItem("shortenedUrls");
-  return raw ? JSON.parse(raw) : [];
-};
-
-const setStoredUrls = (data) => {
-  localStorage.setItem("shortenedUrls", JSON.stringify(data));
-};
-
-const getGeoLocation = () => {
-  return { location: "IN" }; 
-};
+import { useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { log } from "../logger";
 
 const RedirectHandler = () => {
   const { shortcode } = useParams();
-  const [redirectUrl, setRedirectUrl] = useState(null);
-  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const urls = getStoredUrls();
-    const match = urls.find((entry) => entry.shortUrl === shortcode);
+    const redirect = async () => {
+      try {
+        const res = await fetch(`http://localhost:8080/api/redirect/${shortcode}`);
+        const data = await res.json();
 
-    if (!match) {
-      log("frontend", "error", "redirect", `Shortcode not found: ${shortcode}`);
-      setError("Shortened link not found.");
-      return;
-    }
-
-    const now = Date.now();
-    if (now > match.expireAt) {
-      log("frontend", "warning", "redirect", `Expired link clicked: ${shortcode}`);
-      setError("This link has expired.");
-      return;
-    }
-
-    const click = {
-      time: now,
-      referrer: document.referrer || "direct",
-      geo: getGeoLocation()
+        if (data?.originalUrl) {
+          await log("frontend", "info", "redirect", `Redirecting to ${data.originalUrl}`);
+          window.location.href = data.originalUrl; 
+        } else {
+          await log("frontend", "error", "redirect", "Shortcode not found");
+          navigate("/"); 
+        }
+      } catch (error) {
+        await log("frontend", "error", "redirect", `Failed to redirect: ${error.message}`);
+        navigate("/");
+      }
     };
 
-    match.clicks = match.clicks || [];
-    match.visits = (match.visits || 0) + 1;
-    match.clicks.push(click);
+    redirect();
+  }, [shortcode, navigate]);
 
-    const updatedUrls = urls.map((entry) =>
-      entry.shortUrl === shortcode ? match : entry
-    );
-    setStoredUrls(updatedUrls);
-
-    log("frontend", "info", "redirect", `Redirected to ${match.originalUrl} from ${shortcode}`);
-
-    setRedirectUrl(match.originalUrl);
-  }, [shortcode]);
-
-  if (error) return <p style={{ padding: "2rem", color: "crimson" }}>{error}</p>;
-  if (redirectUrl) return <Navigate to={redirectUrl} replace />;
-
-  return <p style={{ padding: "2rem" }}>Redirecting...</p>;
+  return <p>Redirecting...</p>;
 };
 
 export default RedirectHandler;
